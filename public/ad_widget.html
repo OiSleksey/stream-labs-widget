@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ad Widget with Consent</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    @keyframes fadeInScale {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes fadeBackground {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    #ad-container {
+      background-color: #111;
+      background-size: cover;
+      background-position: center;
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      transition: opacity 0.4s ease-in-out;
+      margin: 0 auto;
+      opacity: 0;
+      display: none;
+      animation: fadeInScale 0.6s ease forwards;
+    }
+    #ad-container.visible {
+      opacity: 1;
+    }
+    #ad-container.fade-bg {
+      animation: fadeBackground 0.6s ease forwards;
+    }
+    #consent-block, #size-position-block {
+      color: white;
+      font-size: 18px;
+      padding: 24px;
+      text-align: center;
+      background: rgba(0,0,0,0.7);
+      border-radius: 16px;
+      max-width: 320px;
+      margin: 20px auto;
+      box-shadow: 0 0 16px rgba(0,0,0,0.3);
+      animation: fadeInScale 0.5s ease;
+    }
+    select, button {
+      margin-top: 12px;
+      padding: 10px 20px;
+      font-size: 15px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+    }
+    button {
+      background: linear-gradient(to right, #1db954, #1aa34a);
+      color: white;
+      font-weight: bold;
+      transition: background 0.3s ease-in-out, transform 0.2s ease;
+    }
+    button:hover {
+      background: linear-gradient(to right, #1aa34a, #1db954);
+      transform: scale(1.05);
+    }
+    #settings-button-block {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      animation: fadeInScale 0.5s ease;
+    }
+    #open-settings {
+      padding: 10px 16px;
+      border-radius: 50px;
+      background: rgba(255, 255, 255, 0.85);
+      color: #222;
+      font-weight: bold;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+    #open-settings:hover {
+      background: white;
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+<div id="consent-block">
+  <p>Вы соглашаетесь размещать рекламу на вашем стриме?</p>
+  <button id="agree-button">Да, согласен</button>
+</div>
+
+<div id="size-position-block" style="display: none">
+  <p>Выберите размер и позицию рекламного блока:</p>
+  <select id="size-select">
+    <option value="100">100x100</option>
+    <option value="150">150x150</option>
+    <option value="300" selected>300x300</option>
+  </select>
+  <select id="position-select">
+    <option value="top-left">Слева сверху</option>
+    <option value="top-right">Справа сверху</option>
+    <option value="bottom-left">Слева снизу</option>
+    <option value="bottom-right" selected>Справа снизу</option>
+  </select>
+  <br>
+  <button id="submit-settings">Продолжить</button>
+</div>
+
+<div id="settings-button-block" style="display: none">
+  <button id="open-settings">⚙ Настройки</button>
+</div>
+
+<div id="ad-container"></div>
+
+<script>
+  const adContainer = document.getElementById('ad-container');
+  const consentBlock = document.getElementById('consent-block');
+  const sizePositionBlock = document.getElementById('size-position-block');
+  const settingsButtonBlock = document.getElementById('settings-button-block');
+  const agreeButton = document.getElementById('agree-button');
+  const sizeSelect = document.getElementById('size-select');
+  const positionSelect = document.getElementById('position-select');
+  const params = new URLSearchParams(window.location.search);
+  const streamerId = params.get('id') || 'unknown';
+
+  let adSettings = JSON.parse(localStorage.getItem('adSettings_' + streamerId));
+
+  function applySettings(settings) {
+    const { size, position } = settings;
+    adContainer.style.width = `${size}px`;
+    adContainer.style.height = `${size}px`;
+    adContainer.style.display = 'block';
+    adContainer.classList.add('visible');
+
+    adContainer.style.position = 'fixed';
+    adContainer.style.top = '';
+    adContainer.style.bottom = '';
+    adContainer.style.left = '';
+    adContainer.style.right = '';
+
+    switch (position) {
+      case 'top-left': adContainer.style.top = '10px'; adContainer.style.left = '10px'; break;
+      case 'top-right': adContainer.style.top = '10px'; adContainer.style.right = '10px'; break;
+      case 'bottom-left': adContainer.style.bottom = '10px'; adContainer.style.left = '10px'; break;
+      case 'bottom-right': adContainer.style.bottom = '10px'; adContainer.style.right = '10px'; break;
+    }
+
+    settingsButtonBlock.style.display = 'block';
+
+    fetch(`https://yourdomain.com/api/ad?id=${streamerId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.image_url) {
+          adContainer.classList.remove('fade-bg');
+          void adContainer.offsetWidth;
+          adContainer.classList.add('fade-bg');
+          adContainer.style.backgroundImage = `url(${data.image_url})`;
+        }
+      })
+      .catch(console.error);
+  }
+
+  if (adSettings) {
+    consentBlock.style.display = 'none';
+    applySettings(adSettings);
+  }
+
+  agreeButton.onclick = () => {
+    consentBlock.style.display = 'none';
+    sizePositionBlock.style.display = 'block';
+  };
+
+  document.getElementById('submit-settings').onclick = () => {
+    const size = sizeSelect.value;
+    const position = positionSelect.value;
+    const settings = { size, position };
+    localStorage.setItem('adSettings_' + streamerId, JSON.stringify(settings));
+
+    sizePositionBlock.style.display = 'none';
+    applySettings(settings);
+
+    fetch('https://yourdomain.com/api/consent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: streamerId, size, position })
+    });
+  };
+
+  document.getElementById('open-settings').onclick = () => {
+    adContainer.classList.remove('visible');
+    adContainer.style.display = 'none';
+    settingsButtonBlock.style.display = 'none';
+    sizePositionBlock.style.display = 'block';
+  };
+</script>
+</body>
+</html>
